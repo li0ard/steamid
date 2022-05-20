@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+	<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/core.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/md5.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/sha256.js"></script>
+	<script src="https://bundle.run/buffer@6.0.3"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/sha1.js"></script>
+	<script src="https://armstalker.com/guid/add/BigInteger.min.js"></script>
+	<script src="https://armstalker.com/guid/add/lib-typedarrays.js"></script>
+	<meta charset="utf-8">
+	<title>Steam ID Converter</title>
+</head>
+<body>
+	<nav class="navbar navbar-expand-lg navbar-light bg-light">
+		<div class="container-fluid">
+			<a class="navbar-brand" href="#">Steam ID Converter</a>
+		</div>
+	</nav>
+	<br>
+	<div class="container">
+		<div class="row">
+			<div class="mb-3">
+				<label for="steamId64" class="form-label">Steam ID64</label>
+				<input class="form-control" id="steamId64" placeholder="76561198859592440">
+				<br>
+				<button style="width: 100%;" onclick="convert()" class="btn btn-primary">Convert</button>
+			</div>
+			<hr>
+			<div class="mb-3">
+				<label for="steamId2" class="form-label">Steam ID2</label>
+				<input class="form-control" id="steamId2" placeholder="">
+			</div>
+			<div class="mb-3">
+				<label for="steamId3" class="form-label">Steam ID3</label>
+				<input class="form-control" id="steamId3" placeholder="">
+			</div>
+			<div class="mb-3">
+				<label for="steamAccId" class="form-label">Account ID</label>
+				<input class="form-control" id="steamAccId" placeholder="">
+			</div>
+			<div class="mb-3">
+				<label for="steamFriendCode" class="form-label">Friend Code</label>
+				<input class="form-control" id="steamFriendCode" placeholder="">
+			</div>
+			<div class="mb-3">
+				<label for="bohemiaId" class="form-label">Bohemia ID</label>
+				<input class="form-control" id="bohemiaId" placeholder="">
+			</div>
+			<div class="mb-3">
+				<label for="steamIdhex" class="form-label">Steam ID64 (Hex)</label>
+				<input class="form-control" id="steamIdhex" placeholder="">
+			</div>
+			<div class="mb-3">
+				<label for="steamIdhex" class="form-label">BattleEye GUID</label>
+				<input class="form-control" id="battleye" placeholder="">
+			</div>
+			<div class="mb-3">
+				<label for="steamDeviceId" class="form-label">Device ID (Without salt)</label>
+				<input class="form-control" id="steamDeviceId" placeholder="">
+			</div>
+			<div class="mb-3">
+				<label for="steamTradeoffer" class="form-label">Trade Link</label>
+				<input class="form-control" id="steamTradeoffer" placeholder="">
+			</div>
+		</div>
+	</div>
+	<script type="text/javascript">
+const zero = 0n;
+const one = 1n;
+const n256 = 256n;
+
+class ByteSwap {
+    static from_little_endian(bytes) {
+        let result = zero;
+        let base = one;
+        bytes.forEach(function (byte) {
+            result = result + (base * (BigInt(byte)));
+            base = base * n256;
+        });
+        return result;
+    }
+
+    static from_big_endian(bytes) {
+        return this.from_little_endian(bytes.reverse());
+    }
+
+    static to_little_endian(bigNumber) {
+        let result = new Uint8Array(8);
+        let i = 0;
+        while (bigNumber > zero) {
+            result[i] = Number(bigNumber % n256);
+            bigNumber = bigNumber / n256;
+            i += 1;
+        }
+        return result;
+    }
+
+    static to_big_endian(bytes) {
+        return this.to_little_endian(bytes).reverse();
+    }
+}
+
+const alnum = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+const ralnum = {
+	'A': 0n,
+	'B': 1n,
+	'C': 2n,
+	'D': 3n,
+	'E': 4n,
+	'F': 5n,
+	'G': 6n,
+	'H': 7n,
+	'J': 8n,
+	'K': 9n,
+	'L': 10n,
+	'M': 11n,
+	'N': 12n,
+	'P': 13n,
+	'Q': 14n,
+	'R': 15n,
+	'S': 16n,
+	'T': 17n,
+	'U': 18n,
+	'V': 19n,
+	'W': 20n,
+	'X': 21n,
+	'Y': 22n,
+	'Z': 23n,
+	'2': 24n,
+	'3': 25n,
+	'4': 26n,
+	'5': 27n,
+	'6': 28n,
+	'7': 29n,
+	'8': 30n,
+	'9': 31n,
+}
+
+const default_steam_id = 0x110000100000000n
+const default_group_id = 0x170000000000000n
+
+let b32 = (input) => {
+	let res = ""
+	// Make input into a big endian
+	input = ByteSwap.from_big_endian(ByteSwap.to_little_endian(input))
+
+	for (let i = 0; i < 13; i++) {
+		if (i == 4 || i == 9) {
+			res += "-"
+		}
+		res += alnum[input & 0x1Fn]
+		input >>= 5n
+	}
+
+	return res
+}
+
+let rb32 = (input) => {
+	let res = 0n
+
+	for (let i = 0; i < 13; i++) {
+		if (i == 4 || i == 9) {
+			input = input.slice(1)
+		}
+		res |= ralnum[input[0]] << (5n * BigInt(i))
+		input = input.slice(1)
+	}
+
+	return ByteSwap.from_big_endian(ByteSwap.to_little_endian(res))
+}
+
+function hexToBytes(hex) {
+	for (var bytes = [], c = 0; c < hex.length; c += 2)
+		bytes.push(parseInt(hex.substr(c, 2), 16));
+	return bytes;
+}
+
+let hash_steam_id = (id) => {
+	let account_id = id & 0xFFFFFFFFn
+	let strange_steam_id = account_id | 0x4353474F00000000n
+
+	let bytes = ByteSwap.to_little_endian(strange_steam_id)
+
+	let hash = CryptoJS.MD5(bytes).toString()//crypto.createHash("md5").update(bytes).digest("hex")
+	let buf = CryptoJS.lib.WordArray.create(hexToBytes(hash)).words.slice(0,4)//Buffer.from(hash, "hex").slice(0, 4)
+
+	return ByteSwap.from_little_endian(buf)
+}
+
+let make_u64 = (hi, lo) => {
+	return hi << 32n | lo
+}
+
+function csgoFriendCode(steamid) {
+	steamid = BigInt(steamid)
+
+	let h = hash_steam_id(steamid)
+
+	let r = 0n
+	for (let i = 0; i < 8; i++) {
+		let id_nibble = steamid & 0xFn
+		steamid >>= 4n
+
+		let hash_nibble = (h >> BigInt(i)) & 1n
+
+		let a = r << 4n | id_nibble
+
+		r = make_u64(r >> 28n, a)
+		r = make_u64(r >> 31n, a << 1n | hash_nibble)
+	}
+	let res = b32(r)
+
+	if (res.slice(0, 4) === "AAAA") {
+		res = res.slice(5)
+	}
+
+	return res
+}
+	</script>
+	<script type="text/javascript">
+function id64ToAccId(sid) {
+	return (sid.substr(7)) - 7960265728
+}
+
+function id64Toid2(sid) {
+	var match = sid.match(/^(7656119)([0-9]{10})$/)
+	var const1 = 7960265728;
+	var const2 = "STEAM_1:";
+	var steam32 = '';
+	if (const1 <= match[2]) {
+		a = (match[2] - const1) % 2;
+		b = (match[2] - const1 - a) / 2;
+		steam32 = const2 + a + ':' + b;
+	}
+	return steam32;
+}
+
+function friendCode(steamID) {
+	const FRIEND_CODE_REPLACEMENTS = ['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'm', 'n', 'p', 'q', 'r', 't', 'v', 'w'];
+	let acctIdHex = steamID.toString(16);
+	let friendCode = '';
+
+	for (let i = 0; i < acctIdHex.length; i++) {
+		let char = parseInt(acctIdHex[i], 16);
+		friendCode += FRIEND_CODE_REPLACEMENTS[char];
+	}
+
+	let dashPos = Math.floor(friendCode.length / 2);
+	return friendCode.substring(0, dashPos) + '-' + friendCode.substring(dashPos);
+}
+
+function id64ToGuid(uid) {
+	var steamId = bigInt(uid);
+
+	var parts = [0x42,0x45,0,0,0,0,0,0,0,0];
+
+	for (var i = 2; i < 10; i++) {
+		var res = steamId.divmod(256);
+		steamId = res.quotient; 
+		parts[i] = res.remainder.toJSNumber();
+	}
+
+	var wordArray = CryptoJS.lib.WordArray.create(new Uint8Array(parts));
+	var hash = CryptoJS.MD5(wordArray);
+	return hash.toString();
+}
+
+function id64ToHex(str){ // .toString(16) only works up to 2^53
+	var dec = str.toString().split(''), sum = [], hex = [], i, s
+	while(dec.length){
+		s = 1 * dec.shift()
+		for(i = 0; s || i < sum.length; i++){
+			s += (sum[i] || 0) * 10
+			sum[i] = s % 16
+			s = (s - sum[i]) / 16
+		}
+	}
+	while(sum.length){
+		hex.push(sum.pop().toString(16))
+	}
+	return hex.join('')
+}
+
+function convert() {
+	var steam64 = document.getElementById("steamId64").value
+	document.getElementById("steamId2").value = id64Toid2(steam64)
+	document.getElementById("steamId3").value = `[U:1:${id64ToAccId(steam64)}]`
+	document.getElementById("steamAccId").value = id64ToAccId(steam64)
+	document.getElementById("steamFriendCode").value = "https://s.team/p/" + friendCode(id64ToAccId(steam64))
+	document.getElementById("bohemiaId").value = btoa(CryptoJS.SHA256(steam64).toString(CryptoJS.enc.Latin1))
+	document.getElementById("steamIdhex").value = "steam:" + id64ToHex(steam64)
+	document.getElementById("battleye").value = id64ToGuid(steam64)
+	document.getElementById("steamDeviceId").value = "android:" + CryptoJS.SHA1(steam64).toString(CryptoJS.enc.Hex).replace(/^([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{12}).*$/, '$1-$2-$3-$4-$5')
+	document.getElementById("steamTradeoffer").value = "https://steamcommunity.com/tradeoffer/new?partner=" + id64ToAccId(steam64)
+}
+	</script>
+</body>
+</html>
